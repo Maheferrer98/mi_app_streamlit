@@ -1,70 +1,107 @@
+# ==============================
+# app.py - Streamlit App
+# ==============================
+
 import streamlit as st
+import pandas as pd
+import numpy as np
 import joblib
 import requests
-import io
-import numpy as np
+import tempfile
+import os
 
-st.set_page_config(page_title="Predicción Consumo Energía", layout="centered")
+st.set_page_config(page_title="Predicción Consumo Energía", layout="wide")
+st.title("📊 Predicción de Consumo de Energía")
 
-st.title("Predicción de Consumo de Energía")
-st.write("Introduce los valores para predecir Global Active Power:")
-
-# ------------------------------
-# Función para cargar modelo desde GitHub
-# ------------------------------
+# -------------------------------------
+# Función para cargar el modelo desde GitHub
+# -------------------------------------
 @st.cache_data(show_spinner=True)
 def cargar_modelo():
     url = "https://raw.githubusercontent.com/Maheferrer98/mi_app_streamlit/main/app/modelo_xgb_500k.pkl"
     try:
         response = requests.get(url)
-        response.raise_for_status()  # lanzar error si falla
-        modelo = joblib.load(io.BytesIO(response.content))
+        response.raise_for_status()
+        # Guardar temporalmente
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(response.content)
+            tmp_path = tmp_file.name
+        modelo = joblib.load(tmp_path)
+        os.remove(tmp_path)
         return modelo
     except Exception as e:
-        st.error(f"No se pudo cargar el modelo desde GitHub: {e}")
+        st.error(f"No se pudo cargar el modelo: {e}")
         return None
 
-# ------------------------------
-# Cargar modelo
-# ------------------------------
 model = cargar_modelo()
 if model:
     st.success("Modelo cargado correctamente ✅")
 else:
-    st.warning("No se pudo cargar el modelo ⚠️")
+    st.stop()
 
-# ------------------------------
+# -------------------------------------
 # Inputs del usuario
-# ------------------------------
-hour = st.slider("Hora del día", 0, 23, 12)
-day_of_week = st.slider("Día de la semana (0=Lunes, 6=Domingo)", 0, 6, 2)
-month = st.slider("Mes (1-12)", 1, 12, 6)
-is_weekend = st.selectbox("Es fin de semana?", [0,1], index=0)
+# -------------------------------------
+st.header("Ingrese los valores para predecir el consumo")
 
-global_reactive_power = st.number_input("Global Reactive Power (normalizado)", value=0.0, format="%.4f")
-voltage = st.number_input("Voltage (normalizado)", value=0.0, format="%.4f")
-global_intensity = st.number_input("Global Intensity (normalizado)", value=0.0, format="%.4f")
-sub_metering_1 = st.number_input("Sub Metering 1 (normalizado)", value=0.0, format="%.4f")
-sub_metering_2 = st.number_input("Sub Metering 2 (normalizado)", value=0.0, format="%.4f")
-sub_metering_3 = st.number_input("Sub Metering 3 (normalizado)", value=0.0, format="%.4f")
-GAP_rolling_mean_60 = st.number_input("Rolling mean 60 (normalizado)", value=0.0, format="%.4f")
-GAP_rolling_mean_120 = st.number_input("Rolling mean 120 (normalizado)", value=0.0, format="%.4f")
-GAP_diff_1 = st.number_input("Diff 1 (normalizado)", value=0.0, format="%.4f")
-GAP_diff_60 = st.number_input("Diff 60 (normalizado)", value=0.0, format="%.4f")
-sub_metering_total = st.number_input("Submetering total (normalizado)", value=0.0, format="%.4f")
+def input_features():
+    st.subheader("Variables numéricas estandarizadas")
+    global_reactive_power = st.number_input("Global Reactive Power", min_value=0.0, step=0.01, value=0.1)
+    voltage = st.number_input("Voltage", min_value=0.0, step=0.1, value=235.0)
+    global_intensity = st.number_input("Global Intensity", min_value=0.0, step=0.1, value=1.0)
+    sub_metering_1 = st.number_input("Sub Metering 1 (Cocina)", min_value=0.0, step=0.1, value=0.0)
+    sub_metering_2 = st.number_input("Sub Metering 2 (Lavandería)", min_value=0.0, step=0.1, value=0.0)
+    sub_metering_3 = st.number_input("Sub Metering 3 (Agua Caliente/AC)", min_value=0.0, step=0.1, value=0.0)
 
-# ------------------------------
-# Botón para predecir
-# ------------------------------
-if st.button("Predecir"):
-    if model:
-        X_input = np.array([[global_reactive_power, voltage, global_intensity,
-                             sub_metering_1, sub_metering_2, sub_metering_3,
-                             hour, day_of_week, month, is_weekend,
-                             GAP_rolling_mean_60, GAP_rolling_mean_120,
-                             GAP_diff_1, GAP_diff_60, sub_metering_total]])
-        
-        pred = model.predict(X_input)[0]
-        st.success(f"Predicción de Global Active Power: {pred:.4f} kW")
-    else:
-        st.error("El modelo no está cargado, no se puede predecir.")
+    st.subheader("Variables temporales")
+    hour = st.slider("Hora del día", 0, 23, 12)
+    day_of_week = st.slider("Día de la semana (Lunes=0, Domingo=6)", 0, 6, 2)
+    month = st.slider("Mes", 1, 12, 6)
+    is_weekend = 1 if day_of_week >= 5 else 0
+
+    st.subheader("Features derivadas")
+    GAP_rolling_mean_60 = st.number_input("Media móvil 60 pasos", min_value=0.0, step=0.01, value=0.5)
+    GAP_rolling_mean_120 = st.number_input("Media móvil 120 pasos", min_value=0.0, step=0.01, value=0.5)
+    GAP_diff_1 = st.number_input("Diferencia 1 paso", min_value=-10.0, max_value=10.0, step=0.01, value=0.0)
+    GAP_diff_60 = st.number_input("Diferencia 60 pasos", min_value=-10.0, max_value=10.0, step=0.01, value=0.0)
+    sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
+
+    features = pd.DataFrame({
+        "Global_reactive_power": [global_reactive_power],
+        "Voltage": [voltage],
+        "Global_intensity": [global_intensity],
+        "Sub_metering_1": [sub_metering_1],
+        "Sub_metering_2": [sub_metering_2],
+        "Sub_metering_3": [sub_metering_3],
+        "hour": [hour],
+        "day_of_week": [day_of_week],
+        "month": [month],
+        "is_weekend": [is_weekend],
+        "GAP_rolling_mean_60": [GAP_rolling_mean_60],
+        "GAP_rolling_mean_120": [GAP_rolling_mean_120],
+        "GAP_diff_1": [GAP_diff_1],
+        "GAP_diff_60": [GAP_diff_60],
+        "sub_metering_total": [sub_metering_total]
+    })
+    return features
+
+input_df = input_features()
+
+# -------------------------------------
+# Predicción
+# -------------------------------------
+if st.button("Predecir Consumo Global Activo"):
+    pred = model.predict(input_df)[0]
+    st.success(f"🔹 Predicción de Consumo Global Activo: {pred:.4f} kW")
+    st.info("Esta predicción está basada en el modelo XGBoost entrenado con 500k registros del dataset de consumo energético.")
+
+# -------------------------------------
+# Información adicional para negocio
+# -------------------------------------
+st.markdown("""
+---
+### Explicación para negocio
+- Las variables temporales (hora, día, mes) permiten capturar patrones de consumo diarios y estacionales.
+- Los sub-meterings reflejan consumo específico de cocina, lavandería y agua caliente/aire acondicionado.
+- Las features derivadas como medias móviles y diferencias ayudan a que el modelo capture tendencias y cambios recientes en el consumo.
+""")
