@@ -16,13 +16,13 @@ plt.rcParams["figure.figsize"] = (10,5)
 # ==============================
 @st.cache_resource
 def cargar_modelo():
-    # Ajusta la ruta según la ubicación de tu app.py
-    return joblib.load("../modelo_xgb_500k.pkl")
+    # Cargar modelo XGBoost desde la misma carpeta
+    return joblib.load("modelo_xgb_500k.pkl")
 
 @st.cache_data
 def cargar_dataset():
-    # Ajusta la ruta según la ubicación de tu app.py
-    return pd.read_csv("../household_power_consumption_sample.csv")
+    # Cargar CSV reducido desde la misma carpeta
+    return pd.read_csv("household_power_consumption_sample.csv")
 
 # ==============================
 # Carga de modelo y dataset
@@ -46,31 +46,60 @@ st.subheader("Vista rápida del dataset")
 st.dataframe(df.head())
 
 # ==============================
-# Selección de variables para predicción
+# Simulación de predicción
 # ==============================
 st.subheader("Simular predicción")
 st.markdown("Selecciona los valores de las variables para predecir el consumo:")
 
-# Selección de variables interactivas
+# Inputs interactivos
 hour = st.slider("Hora del día", 0, 23, 12)
 day_of_week = st.selectbox("Día de la semana (0=Lunes)", range(7), index=0)
 month = st.slider("Mes", 1, 12, 6)
 is_weekend = 1 if day_of_week >= 5 else 0
-global_reactive_power = st.number_input("Global Reactive Power", float(df['Global_reactive_power'].min()), float(df['Global_reactive_power'].max()), float(df['Global_reactive_power'].mean()))
-voltage = st.number_input("Voltage", float(df['Voltage'].min()), float(df['Voltage'].max()), float(df['Voltage'].mean()))
-global_intensity = st.number_input("Global Intensity", float(df['Global_intensity'].min()), float(df['Global_intensity'].max()), float(df['Global_intensity'].mean()))
-sub_metering_1 = st.number_input("Sub Metering 1", float(df['Sub_metering_1'].min()), float(df['Sub_metering_1'].max()), float(df['Sub_metering_1'].mean()))
-sub_metering_2 = st.number_input("Sub Metering 2", float(df['Sub_metering_2'].min()), float(df['Sub_metering_2'].max()), float(df['Sub_metering_2'].mean()))
-sub_metering_3 = st.number_input("Sub Metering 3", float(df['Sub_metering_3'].min()), float(df['Sub_metering_3'].max()), float(df['Sub_metering_3'].mean()))
 
-# Calcular features derivadas
-GAP_rolling_mean_60 = global_reactive_power  # Placeholder simple, opcional ajustar según tu estrategia
+global_reactive_power = st.number_input(
+    "Global Reactive Power", float(df['Global_reactive_power'].min()),
+    float(df['Global_reactive_power'].max()),
+    float(df['Global_reactive_power'].mean())
+)
+
+voltage = st.number_input(
+    "Voltage", float(df['Voltage'].min()),
+    float(df['Voltage'].max()),
+    float(df['Voltage'].mean())
+)
+
+global_intensity = st.number_input(
+    "Global Intensity", float(df['Global_intensity'].min()),
+    float(df['Global_intensity'].max()),
+    float(df['Global_intensity'].mean())
+)
+
+sub_metering_1 = st.number_input(
+    "Sub Metering 1", float(df['Sub_metering_1'].min()),
+    float(df['Sub_metering_1'].max()),
+    float(df['Sub_metering_1'].mean())
+)
+
+sub_metering_2 = st.number_input(
+    "Sub Metering 2", float(df['Sub_metering_2'].min()),
+    float(df['Sub_metering_2'].max()),
+    float(df['Sub_metering_2'].mean())
+)
+
+sub_metering_3 = st.number_input(
+    "Sub Metering 3", float(df['Sub_metering_3'].min()),
+    float(df['Sub_metering_3'].max()),
+    float(df['Sub_metering_3'].mean())
+)
+
+# Features derivadas (simplificadas)
+GAP_rolling_mean_60 = global_reactive_power
 GAP_rolling_mean_120 = global_reactive_power
 GAP_diff_1 = global_reactive_power
 GAP_diff_60 = global_reactive_power
 sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
 
-# Crear dataframe para predicción
 X_pred = pd.DataFrame({
     'Global_reactive_power':[global_reactive_power],
     'Voltage':[voltage],
@@ -89,9 +118,6 @@ X_pred = pd.DataFrame({
     'sub_metering_total':[sub_metering_total]
 })
 
-# ==============================
-# Predicción
-# ==============================
 if st.button("Predecir consumo"):
     pred = model.predict(X_pred)[0]
     st.success(f"Predicción de Global Active Power: {pred:.3f} kW")
