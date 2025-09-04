@@ -1,91 +1,114 @@
 # ==============================
-# APP STREAMLIT PARA CONSUMO ELÉCTRICO
+# APP STREAMLIT - PREDICCIÓN CONSUMO ENERGÍA
 # ==============================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# -----------------------------
-# 1️⃣ Título y descripción
-# -----------------------------
-st.title("Predicción de Consumo Eléctrico")
-st.markdown("""
-Esta app predice el **Consumo Global Activo (kW)** de un hogar
-y permite comparar el consumo real vs predicho en un dataset histórico.
-""")
+sns.set(style="whitegrid")
+plt.rcParams["figure.figsize"] = (10,5)
 
-# -----------------------------
-# 2️⃣ Cargar modelo y dataset de ejemplo
-# -----------------------------
-@st.cache_data
+# ==============================
+# Funciones de carga con caching
+# ==============================
+@st.cache_resource
 def cargar_modelo():
-    return joblib.load("modelo_xgb_500k.pkl")
+    # Ajusta la ruta según la ubicación de tu app.py
+    return joblib.load("../modelo_xgb_500k.pkl")
 
 @st.cache_data
 def cargar_dataset():
-    return pd.read_csv("household_power_consumption_sample.csv")
+    # Ajusta la ruta según la ubicación de tu app.py
+    return pd.read_csv("../household_power_consumption_sample.csv")
 
-model = joblib.load("../modelo_xgb_500k.pkl")
-df_sample = pd.read_csv("../household_power_consumption_sample.csv")
+# ==============================
+# Carga de modelo y dataset
+# ==============================
+model = cargar_modelo()
+df = cargar_dataset()
 
-# -----------------------------
-# 3️⃣ Inputs del usuario
-# -----------------------------
-st.sidebar.header("Características del hogar y tiempo")
+# ==============================
+# Título y descripción
+# ==============================
+st.title("Predicción de Consumo de Energía - Hogares")
+st.markdown("""
+Esta aplicación permite predecir el consumo **Global Active Power** en un hogar
+utilizando datos históricos y un modelo XGBoost entrenado.
+""")
 
-Global_reactive_power = st.sidebar.slider("Potencia Reactiva (kW)", 0.0, 1.0, 0.1)
-Voltage = st.sidebar.slider("Voltaje (V)", 220.0, 250.0, 235.0)
-Global_intensity = st.sidebar.slider("Intensidad Global (A)", 0.0, 30.0, 10.0)
-Sub_metering_1 = st.sidebar.slider("Cocina (Wh)", 0, 50, 10)
-Sub_metering_2 = st.sidebar.slider("Lavandería (Wh)", 0, 50, 10)
-Sub_metering_3 = st.sidebar.slider("Agua Caliente/AC (Wh)", 0, 50, 10)
+# ==============================
+# Visualización del dataset
+# ==============================
+st.subheader("Vista rápida del dataset")
+st.dataframe(df.head())
 
-hour = st.sidebar.slider("Hora del día", 0, 23, 12)
-day_of_week = st.sidebar.slider("Día de la semana (0=Lunes,6=Domingo)", 0, 6, 0)
-month = st.sidebar.slider("Mes", 1, 12, 1)
+# ==============================
+# Selección de variables para predicción
+# ==============================
+st.subheader("Simular predicción")
+st.markdown("Selecciona los valores de las variables para predecir el consumo:")
+
+# Selección de variables interactivas
+hour = st.slider("Hora del día", 0, 23, 12)
+day_of_week = st.selectbox("Día de la semana (0=Lunes)", range(7), index=0)
+month = st.slider("Mes", 1, 12, 6)
 is_weekend = 1 if day_of_week >= 5 else 0
+global_reactive_power = st.number_input("Global Reactive Power", float(df['Global_reactive_power'].min()), float(df['Global_reactive_power'].max()), float(df['Global_reactive_power'].mean()))
+voltage = st.number_input("Voltage", float(df['Voltage'].min()), float(df['Voltage'].max()), float(df['Voltage'].mean()))
+global_intensity = st.number_input("Global Intensity", float(df['Global_intensity'].min()), float(df['Global_intensity'].max()), float(df['Global_intensity'].mean()))
+sub_metering_1 = st.number_input("Sub Metering 1", float(df['Sub_metering_1'].min()), float(df['Sub_metering_1'].max()), float(df['Sub_metering_1'].mean()))
+sub_metering_2 = st.number_input("Sub Metering 2", float(df['Sub_metering_2'].min()), float(df['Sub_metering_2'].max()), float(df['Sub_metering_2'].mean()))
+sub_metering_3 = st.number_input("Sub Metering 3", float(df['Sub_metering_3'].min()), float(df['Sub_metering_3'].max()), float(df['Sub_metering_3'].mean()))
 
-GAP_rolling_mean_60 = st.sidebar.slider("Media móvil 60 min (kW)", 0.0, 5.0, 0.1)
-GAP_rolling_mean_120 = st.sidebar.slider("Media móvil 120 min (kW)", 0.0, 5.0, 0.1)
-GAP_diff_1 = st.sidebar.slider("Diferencia 1 min (kW)", -1.0, 1.0, 0.0)
-GAP_diff_60 = st.sidebar.slider("Diferencia 60 min (kW)", -1.0, 1.0, 0.0)
-sub_metering_total = Sub_metering_1 + Sub_metering_2 + Sub_metering_3
+# Calcular features derivadas
+GAP_rolling_mean_60 = global_reactive_power  # Placeholder simple, opcional ajustar según tu estrategia
+GAP_rolling_mean_120 = global_reactive_power
+GAP_diff_1 = global_reactive_power
+GAP_diff_60 = global_reactive_power
+sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
 
-features = np.array([[Global_reactive_power, Voltage, Global_intensity,
-                      Sub_metering_1, Sub_metering_2, Sub_metering_3,
-                      hour, day_of_week, month, is_weekend,
-                      GAP_rolling_mean_60, GAP_rolling_mean_120,
-                      GAP_diff_1, GAP_diff_60, sub_metering_total]])
+# Crear dataframe para predicción
+X_pred = pd.DataFrame({
+    'Global_reactive_power':[global_reactive_power],
+    'Voltage':[voltage],
+    'Global_intensity':[global_intensity],
+    'Sub_metering_1':[sub_metering_1],
+    'Sub_metering_2':[sub_metering_2],
+    'Sub_metering_3':[sub_metering_3],
+    'hour':[hour],
+    'day_of_week':[day_of_week],
+    'month':[month],
+    'is_weekend':[is_weekend],
+    'GAP_rolling_mean_60':[GAP_rolling_mean_60],
+    'GAP_rolling_mean_120':[GAP_rolling_mean_120],
+    'GAP_diff_1':[GAP_diff_1],
+    'GAP_diff_60':[GAP_diff_60],
+    'sub_metering_total':[sub_metering_total]
+})
 
-# -----------------------------
-# 4️⃣ Predicción
-# -----------------------------
-pred = model.predict(features)[0]
-st.success(f"Predicción de Consumo Global Activo: {pred:.3f} kW")
+# ==============================
+# Predicción
+# ==============================
+if st.button("Predecir consumo"):
+    pred = model.predict(X_pred)[0]
+    st.success(f"Predicción de Global Active Power: {pred:.3f} kW")
 
-# -----------------------------
-# 5️⃣ Comparación Real vs Predicho
-# -----------------------------
-st.subheader("Comparación Real vs Predicho")
+# ==============================
+# Gráficos de análisis de negocio
+# ==============================
+st.subheader("Análisis exploratorio")
 
-feature_cols = ['Global_reactive_power','Voltage','Global_intensity',
-                'Sub_metering_1','Sub_metering_2','Sub_metering_3',
-                'hour','day_of_week','month','is_weekend',
-                'GAP_rolling_mean_60','GAP_rolling_mean_120',
-                'GAP_diff_1','GAP_diff_60','sub_metering_total']
-
-X_sample = df_sample[feature_cols]
-y_real = df_sample['Global_active_power']
-y_pred = model.predict(X_sample)
-
-fig, ax = plt.subplots(figsize=(12,5))
-ax.plot(y_real[:1000].values, label="Real", alpha=0.8)
-ax.plot(y_pred[:1000], label="Predicho", alpha=0.8)
-ax.set_title("Consumo Real vs Predicho (Primeros 1000 puntos)")
-ax.set_xlabel("Tiempo")
-ax.set_ylabel("Consumo (kW)")
-ax.legend()
+# Histograma de consumo
+fig, ax = plt.subplots()
+sns.histplot(df['Global_active_power'], bins=50, kde=True, ax=ax)
+ax.set_title("Distribución de Global Active Power")
 st.pyplot(fig)
+
+# Consumo promedio por hora
+fig2, ax2 = plt.subplots()
+df.groupby('hour')['Global_active_power'].mean().plot(kind='bar', ax=ax2)
+ax2.set_title("Consumo promedio por hora")
+st.pyplot(fig2)
