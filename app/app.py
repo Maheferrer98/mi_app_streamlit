@@ -28,8 +28,8 @@ def cargar_modelo():
 def cargar_dataset():
     return pd.read_csv("household_power_consumption_sample.csv")
 
-model = cargar_modelo()
-df_sample = cargar_dataset()
+model = joblib.load("../modelo_xgb_500k.pkl")
+df_sample = pd.read_csv("../household_power_consumption_sample.csv")
 
 # -----------------------------
 # 3️⃣ Inputs del usuario
