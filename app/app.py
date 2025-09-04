@@ -1,27 +1,39 @@
 # ==============================
-# APP INTERACTIVA DE PREDICCIÓN CON GRÁFICOS
+# APP STREAMLIT PARA CONSUMO ELÉCTRICO
 # ==============================
 
 import streamlit as st
-import joblib
-import numpy as np
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import joblib
 
-# Cargar modelo XGBoost entrenado
-model = joblib.load("modelo_xgb_500k.pkl")
-
+# -----------------------------
+# 1️⃣ Título y descripción
+# -----------------------------
 st.title("Predicción de Consumo Eléctrico")
-
 st.markdown("""
-Esta aplicación predice el **Consumo Global Activo (kW)** 
-a partir de variables del hogar y temporales. 
-También puedes comparar el **consumo real vs predicho** de un dataset histórico.
+Esta app predice el **Consumo Global Activo (kW)** de un hogar
+y permite comparar el consumo real vs predicho en un dataset histórico.
 """)
 
-# ------------------------------
-# 1️⃣ Inputs del usuario
-# ------------------------------
+# -----------------------------
+# 2️⃣ Cargar modelo y dataset de ejemplo
+# -----------------------------
+@st.cache_data
+def cargar_modelo():
+    return joblib.load("modelo_xgb_500k.pkl")
+
+@st.cache_data
+def cargar_dataset():
+    return pd.read_csv("household_power_consumption_sample.csv")
+
+model = cargar_modelo()
+df_sample = cargar_dataset()
+
+# -----------------------------
+# 3️⃣ Inputs del usuario
+# -----------------------------
 st.sidebar.header("Características del hogar y tiempo")
 
 Global_reactive_power = st.sidebar.slider("Potencia Reactiva (kW)", 0.0, 1.0, 0.1)
@@ -42,28 +54,23 @@ GAP_diff_1 = st.sidebar.slider("Diferencia 1 min (kW)", -1.0, 1.0, 0.0)
 GAP_diff_60 = st.sidebar.slider("Diferencia 60 min (kW)", -1.0, 1.0, 0.0)
 sub_metering_total = Sub_metering_1 + Sub_metering_2 + Sub_metering_3
 
-# ------------------------------
-# 2️⃣ Preparar vector de features
-# ------------------------------
 features = np.array([[Global_reactive_power, Voltage, Global_intensity,
                       Sub_metering_1, Sub_metering_2, Sub_metering_3,
                       hour, day_of_week, month, is_weekend,
                       GAP_rolling_mean_60, GAP_rolling_mean_120,
                       GAP_diff_1, GAP_diff_60, sub_metering_total]])
 
-# ------------------------------
-# 3️⃣ Predicción
-# ------------------------------
+# -----------------------------
+# 4️⃣ Predicción
+# -----------------------------
 pred = model.predict(features)[0]
 st.success(f"Predicción de Consumo Global Activo: {pred:.3f} kW")
 
-# ------------------------------
-# 4️⃣ Comparación de Real vs Predicho en dataset histórico
-# ------------------------------
-st.subheader("Comparación Real vs Predicho (Muestra)")
+# -----------------------------
+# 5️⃣ Comparación Real vs Predicho
+# -----------------------------
+st.subheader("Comparación Real vs Predicho")
 
-# Cargar una muestra del dataset para visualizar
-df_sample = pd.read_csv("household_power_consumption_sample.csv")
 feature_cols = ['Global_reactive_power','Voltage','Global_intensity',
                 'Sub_metering_1','Sub_metering_2','Sub_metering_3',
                 'hour','day_of_week','month','is_weekend',
@@ -74,7 +81,6 @@ X_sample = df_sample[feature_cols]
 y_real = df_sample['Global_active_power']
 y_pred = model.predict(X_sample)
 
-# Gráfico Real vs Predicho
 fig, ax = plt.subplots(figsize=(12,5))
 ax.plot(y_real[:1000].values, label="Real", alpha=0.8)
 ax.plot(y_pred[:1000], label="Predicho", alpha=0.8)
