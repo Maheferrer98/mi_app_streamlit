@@ -1,88 +1,70 @@
 import streamlit as st
-import pandas as pd
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
+import requests
+import io
+import numpy as np
 
-sns.set(style="whitegrid")
-plt.rcParams["figure.figsize"] = (10,5)
+st.set_page_config(page_title="Predicción Consumo Energía", layout="centered")
 
-# ==============================
-# Funciones de carga
-# ==============================
-@st.cache_resource
+st.title("Predicción de Consumo de Energía")
+st.write("Introduce los valores para predecir Global Active Power:")
+
+# ------------------------------
+# Función para cargar modelo desde GitHub
+# ------------------------------
+@st.cache_data(show_spinner=True)
 def cargar_modelo():
-    return joblib.load("modelo_xgb_500k.pkl")
+    url = "https://raw.githubusercontent.com/Maheferrer98/mi_app_streamlit/main/app/modelo_xgb_500k.pkl"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # lanzar error si falla
+        modelo = joblib.load(io.BytesIO(response.content))
+        return modelo
+    except Exception as e:
+        st.error(f"No se pudo cargar el modelo desde GitHub: {e}")
+        return None
 
-@st.cache_data
-def cargar_dataset():
-    return pd.read_csv("household_power_consumption_sample.csv")
-
+# ------------------------------
+# Cargar modelo
+# ------------------------------
 model = cargar_modelo()
-df = cargar_dataset()
+if model:
+    st.success("Modelo cargado correctamente ✅")
+else:
+    st.warning("No se pudo cargar el modelo ⚠️")
 
-# ==============================
-# Título y descripción
-# ==============================
-st.title("Predicción Consumo Hogar")
-st.markdown("Predicción de Global Active Power usando modelo XGBoost.")
+# ------------------------------
+# Inputs del usuario
+# ------------------------------
+hour = st.slider("Hora del día", 0, 23, 12)
+day_of_week = st.slider("Día de la semana (0=Lunes, 6=Domingo)", 0, 6, 2)
+month = st.slider("Mes (1-12)", 1, 12, 6)
+is_weekend = st.selectbox("Es fin de semana?", [0,1], index=0)
 
-# ==============================
-# Vista rápida
-# ==============================
-st.subheader("Vista rápida del dataset")
-st.dataframe(df.head())
+global_reactive_power = st.number_input("Global Reactive Power (normalizado)", value=0.0, format="%.4f")
+voltage = st.number_input("Voltage (normalizado)", value=0.0, format="%.4f")
+global_intensity = st.number_input("Global Intensity (normalizado)", value=0.0, format="%.4f")
+sub_metering_1 = st.number_input("Sub Metering 1 (normalizado)", value=0.0, format="%.4f")
+sub_metering_2 = st.number_input("Sub Metering 2 (normalizado)", value=0.0, format="%.4f")
+sub_metering_3 = st.number_input("Sub Metering 3 (normalizado)", value=0.0, format="%.4f")
+GAP_rolling_mean_60 = st.number_input("Rolling mean 60 (normalizado)", value=0.0, format="%.4f")
+GAP_rolling_mean_120 = st.number_input("Rolling mean 120 (normalizado)", value=0.0, format="%.4f")
+GAP_diff_1 = st.number_input("Diff 1 (normalizado)", value=0.0, format="%.4f")
+GAP_diff_60 = st.number_input("Diff 60 (normalizado)", value=0.0, format="%.4f")
+sub_metering_total = st.number_input("Submetering total (normalizado)", value=0.0, format="%.4f")
 
-# ==============================
-# Simulación de predicción
-# ==============================
-st.subheader("Simular predicción")
-hour = st.slider("Hora", 0, 23, 12)
-day_of_week = st.selectbox("Día de la semana (0=Lunes)", range(7))
-month = st.slider("Mes", 1, 12, 6)
-is_weekend = 1 if day_of_week >=5 else 0
-
-# Valores promedio como input inicial
-global_reactive_power = st.number_input("Global Reactive Power", float(df['Global_reactive_power'].min()), float(df['Global_reactive_power'].max()), float(df['Global_reactive_power'].mean()))
-voltage = st.number_input("Voltage", float(df['Voltage'].min()), float(df['Voltage'].max()), float(df['Voltage'].mean()))
-global_intensity = st.number_input("Global Intensity", float(df['Global_intensity'].min()), float(df['Global_intensity'].max()), float(df['Global_intensity'].mean()))
-sub_metering_1 = st.number_input("Sub Metering 1", float(df['Sub_metering_1'].min()), float(df['Sub_metering_1'].max()), float(df['Sub_metering_1'].mean()))
-sub_metering_2 = st.number_input("Sub Metering 2", float(df['Sub_metering_2'].min()), float(df['Sub_metering_2'].max()), float(df['Sub_metering_2'].mean()))
-sub_metering_3 = st.number_input("Sub Metering 3", float(df['Sub_metering_3'].min()), float(df['Sub_metering_3'].max()), float(df['Sub_metering_3'].mean()))
-
-sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
-GAP_rolling_mean_60 = global_reactive_power
-GAP_rolling_mean_120 = global_reactive_power
-GAP_diff_1 = global_reactive_power
-GAP_diff_60 = global_reactive_power
-
-X_pred = pd.DataFrame({
-    'Global_reactive_power':[global_reactive_power],
-    'Voltage':[voltage],
-    'Global_intensity':[global_intensity],
-    'Sub_metering_1':[sub_metering_1],
-    'Sub_metering_2':[sub_metering_2],
-    'Sub_metering_3':[sub_metering_3],
-    'hour':[hour],
-    'day_of_week':[day_of_week],
-    'month':[month],
-    'is_weekend':[is_weekend],
-    'GAP_rolling_mean_60':[GAP_rolling_mean_60],
-    'GAP_rolling_mean_120':[GAP_rolling_mean_120],
-    'GAP_diff_1':[GAP_diff_1],
-    'GAP_diff_60':[GAP_diff_60],
-    'sub_metering_total':[sub_metering_total]
-})
-
-if st.button("Predecir consumo"):
-    pred = model.predict(X_pred)[0]
-    st.success(f"Predicción de Global Active Power: {pred:.3f} kW")
-
-# ==============================
-# Gráficos de análisis
-# ==============================
-st.subheader("Distribución de consumo")
-fig, ax = plt.subplots()
-sns.histplot(df['Global_active_power'], bins=50, kde=True, ax=ax)
-ax.set_title("Global Active Power")
-st.pyplot(fig)
+# ------------------------------
+# Botón para predecir
+# ------------------------------
+if st.button("Predecir"):
+    if model:
+        X_input = np.array([[global_reactive_power, voltage, global_intensity,
+                             sub_metering_1, sub_metering_2, sub_metering_3,
+                             hour, day_of_week, month, is_weekend,
+                             GAP_rolling_mean_60, GAP_rolling_mean_120,
+                             GAP_diff_1, GAP_diff_60, sub_metering_total]])
+        
+        pred = model.predict(X_input)[0]
+        st.success(f"Predicción de Global Active Power: {pred:.4f} kW")
+    else:
+        st.error("El modelo no está cargado, no se puede predecir.")
