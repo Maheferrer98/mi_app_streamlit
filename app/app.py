@@ -48,9 +48,9 @@ def input_features():
     st.subheader("Variables principales")
     voltage = st.number_input("Voltage", min_value=0.0, step=0.1, value=235.0)
     global_intensity = st.number_input("Global Intensity (A)", min_value=0.0, step=0.1, value=1.0)
-    sub_metering_1 = st.number_input("Sub Metering 1 (Cocina)", min_value=0.0, step=0.1, value=0.0)
-    sub_metering_2 = st.number_input("Sub Metering 2 (Lavandería)", min_value=0.0, step=0.1, value=0.0)
-    sub_metering_3 = st.number_input("Sub Metering 3 (Agua Caliente/AC)", min_value=0.0, step=0.1, value=0.0)
+    sub_metering_1 = st.number_input("Consumo de la Cocina", min_value=0.0, step=0.1, value=0.0)
+    sub_metering_2 = st.number_input("Consumo de la Lavandería", min_value=0.0, step=0.1, value=0.0)
+    sub_metering_3 = st.number_input("Consumo del Agua Caliente y Aire Acondicionado)", min_value=0.0, step=0.1, value=0.0)
 
     st.subheader("Variables temporales")
     hour = st.slider("Hora del día", 0, 23, 12)
