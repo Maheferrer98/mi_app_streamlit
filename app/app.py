@@ -67,7 +67,6 @@ def input_features():
     sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
 
     features = pd.DataFrame({
-        "Global_reactive_power": [global_reactive_power],
         "Voltage": [voltage],
         "Global_intensity": [global_intensity],
         "Sub_metering_1": [sub_metering_1],
@@ -77,11 +76,6 @@ def input_features():
         "day_of_week": [day_of_week],
         "month": [month],
         "is_weekend": [is_weekend],
-        "GAP_rolling_mean_60": [GAP_rolling_mean_60],
-        "GAP_rolling_mean_120": [GAP_rolling_mean_120],
-        "GAP_diff_1": [GAP_diff_1],
-        "GAP_diff_60": [GAP_diff_60],
-        "sub_metering_total": [sub_metering_total]
     })
     return features
 
@@ -94,14 +88,3 @@ if st.button("Predecir Consumo Global Activo"):
     pred = model.predict(input_df)[0]
     st.success(f"🔹 Predicción de Consumo Global Activo: {pred:.4f} kW")
     st.info("Esta predicción está basada en el modelo XGBoost entrenado con 500k registros del dataset de consumo energético.")
-
-# -------------------------------------
-# Información adicional para negocio
-# -------------------------------------
-st.markdown("""
----
-### Explicación para negocio
-- Las variables temporales (hora, día, mes) permiten capturar patrones de consumo diarios y estacionales.
-- Los sub-meterings reflejan consumo específico de cocina, lavandería y agua caliente/aire acondicionado.
-- Las features derivadas como medias móviles y diferencias ayudan a que el modelo capture tendencias y cambios recientes en el consumo.
-""")
