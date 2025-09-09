@@ -45,8 +45,7 @@ st.header("Ingrese los valores para predecir el consumo")
 def input_features():
     st.subheader("Variables principales")
     global_reactive_power = st.number_input(
-        "Global Reactive Power (kW)", min_value=0.0, step=0.01, value=0.1
-    )
+        "Potencia Reactiva Global (kW)", min_value=0.0, step=0.01, value=0.1)
     voltage = st.number_input("Voltage (V)", min_value=0.0, step=0.1, value=235.0)
     global_intensity = st.number_input("Intensidad Global (A)", min_value=0.0, step=0.1, value=1.0)
     sub_metering_1 = st.number_input("Consumo de la Cocina (kW)", min_value=0.0, step=0.1, value=0.0)
