@@ -1,7 +1,4 @@
-# ==============================
 # app.py - Streamlit App compatible con modelo original
-# ==============================
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -12,9 +9,7 @@ import os
 st.set_page_config(page_title="Predicción Consumo Energía", layout="wide")
 st.title("📊 Predicción de Consumo de Energía")
 
-# -------------------------------------
 # Función para cargar el modelo desde GitHub
-# -------------------------------------
 @st.cache_data(show_spinner=True)
 def cargar_modelo():
     url = "https://raw.githubusercontent.com/Maheferrer98/mi_app_streamlit/main/app/modelo_xgb_500k.pkl"
@@ -37,9 +32,7 @@ if model:
 else:
     st.stop()
 
-# -------------------------------------
 # Inputs visibles para el usuario
-# -------------------------------------
 st.header("Ingrese los valores para predecir el consumo")
 
 def input_features():
@@ -82,9 +75,7 @@ def input_features():
 
 input_df = input_features()
 
-# -------------------------------------
 # Predicción
-# -------------------------------------
 if st.button("Predecir Consumo Global Activo"):
     pred = model.predict(input_df)[0]
     st.success(f"🔹 Predicción de Consumo Global Activo: {pred:.4f} kW")
