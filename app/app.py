@@ -1,4 +1,4 @@
-# app.py - Streamlit App compatible con modelo original
+# app.py - Streamlit
 import streamlit as st
 import pandas as pd
 import joblib
@@ -7,7 +7,7 @@ import tempfile
 import os
 
 st.set_page_config(page_title="Predicción Consumo Energía", layout="wide")
-st.title("📊 Predicción de Consumo de Energía")
+st.title("Predicción de Consumo de Energía")
 
 # Función para cargar el modelo desde GitHub
 @st.cache_data(show_spinner=True)
@@ -28,11 +28,11 @@ def cargar_modelo():
 
 model = cargar_modelo()
 if model:
-    st.success("Modelo cargado correctamente ✅")
+    st.success("Modelo cargado correctamente")
 else:
     st.stop()
 
-# Inputs visibles para el usuario
+# Inputs visibles para que el usuario rellene
 st.header("Ingrese los valores para predecir el consumo")
 
 def input_features():
@@ -53,7 +53,7 @@ def input_features():
 
     sub_metering_total = sub_metering_1 + sub_metering_2 + sub_metering_3
 
-    # Se rellenan internamente las features derivadas que el modelo necesita
+    # Se rellenan internamente las features derivadas que el modelo necesita y no queremos que aparezcan en la web
     features = pd.DataFrame({
         "Global_reactive_power": [global_reactive_power],
         "Voltage": [voltage],
